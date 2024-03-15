@@ -40,8 +40,8 @@ protected:
 	float targDist;
 
 	float reward;
+	float timer;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	TArray<TArray<float>> Q;
 
 
@@ -57,6 +57,11 @@ public:
 
 	void chooseState();
 	void chooseAction();
-	
+
+	void SaveQToFile();
+	void LoadQFromFile();
+
+	void PrintAction();
+
 	float getMax();
 };

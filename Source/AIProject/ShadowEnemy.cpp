@@ -27,6 +27,7 @@ void AShadowEnemy::BeginPlay()
 	TArray<float> qEntry;
 	qEntry.Init(0, ACTION_NUM);
 	Q.Init(qEntry, STATE_NUM);
+	LoadQFromFile();
 
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APointLight::StaticClass(), pointLights);
 	
@@ -145,6 +146,7 @@ void AShadowEnemy::Tick(float DeltaTime)
 		break;
 	}
 	}
+	PrintAction();
 	float calcReward = 0;
 
 	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist){
@@ -163,6 +165,13 @@ void AShadowEnemy::Tick(float DeltaTime)
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
 	float print = inLight;
 	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("inLight equals %f"), print));
+
+	timer += DeltaTime;
+
+	if (timer > 10) {
+		timer = 0;
+		SaveQToFile();
+	}
 }
 
 // Called to bind functionality to input
@@ -229,6 +238,65 @@ void AShadowEnemy::chooseAction()
 		return;
 	}
 	cAction = Action(bestAction);
+
+}
+
+void AShadowEnemy::SaveQToFile()
+{
+	FString filePath = FPaths::ProjectContentDir() + TEXT("QMatrix.txt");
+	FString forOutput;
+
+	for (const TArray<float>& InnerArray : Q) {
+		for (float value : InnerArray) {
+			forOutput += FString::SanitizeFloat(value) + TEXT(" ");
+		}
+		forOutput += TEXT("\n");
+	}
+
+	FFileHelper::SaveStringToFile(forOutput, *filePath);
+}
+
+void AShadowEnemy::LoadQFromFile()
+{
+	FString filePath = FPaths::ProjectContentDir() + TEXT("QMatrix.txt");
+	FString forInput;
+
+	FFileHelper::LoadFileToString(forInput, *filePath);
+
+	TArray<FString> lines;
+	forInput.ParseIntoArrayLines(lines);
+
+	Q.Empty();
+
+	for (const FString& line : lines) {
+		TArray<FString> tokens;
+		line.ParseIntoArray(tokens, TEXT(" "), true);
+
+		TArray<float> innerArray;
+		for (const FString& token : tokens) {
+			innerArray.Add(FCString::Atof(*token));
+		}
+		Q.Add(innerArray);
+	}
+}
+
+void AShadowEnemy::PrintAction()
+{
+
+	switch (cAction) {
+	case MOVE_FORWARD:
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Forward"));
+		break;
+	case MOVE_BACKWARDS:
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Backwards"));
+		break;
+	case MOVE_LEFT:
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Left"));
+		break;
+	case MOVE_RIGHT:
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Right"));
+		break;
+	}
 
 }
 
