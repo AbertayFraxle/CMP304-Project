@@ -150,13 +150,20 @@ void AShadowEnemy::Tick(float DeltaTime)
 	float calcReward = 0;
 
 	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist){
-		calcReward = 40;
+		calcReward += 1000 / FVector(GetActorLocation() - player->GetActorLocation()).Length();
 	}
-	else {
-		calcReward = -40;
+	else if (FVector(GetActorLocation() - player->GetActorLocation()).Length() > targDist) {
+		calcReward -= FVector(GetActorLocation() - player->GetActorLocation()).Length();
 	}
 
-	calcReward -= (inLight * 10);
+	FHitResult hit;
+	GetWorld()->LineTraceSingleByChannel(hit, GetActorLocation(), GetActorLocation() + (GetActorForwardVector() *100), ECC_WorldStatic);
+
+	if (hit.bBlockingHit != 0) {
+		calcReward -= 2*FVector(GetActorLocation() - player->GetActorLocation()).Length();
+	}
+
+	calcReward -= (inLight * 500);
 
 	reward += calcReward;
 
@@ -185,34 +192,58 @@ void AShadowEnemy::chooseState()
 	FVector targLoc = player->GetActorLocation();
 	FVector thisLoc= GetActorLocation();
 	
-	if (targLoc.X > thisLoc.X) {
-		if (targLoc.Y > thisLoc.Y) {
-			cState = State::TARGET_AHEAD_RIGHT;
+	if (inLight <= 0) {
+		if (targLoc.X > thisLoc.X) {
+			if (targLoc.Y > thisLoc.Y) {
+				cState = State::TARGET_AHEAD_RIGHT_NO_LIGHT;
+			}
+			else if (targLoc.Y < thisLoc.Y) {
+				cState = State::TARGET_AHEAD_LEFT_NO_LIGHT;
+			}
 		}
-		else if (targLoc.Y < thisLoc.Y) {
-			cState = State::TARGET_AHEAD_LEFT;
-		}
-		else {
-			cState = State::TARGET_AHEAD;
+		else if (targLoc.X < thisLoc.X) {
+			if (targLoc.Y > thisLoc.Y) {
+				cState = State::TARGET_BEHIND_RIGHT_NO_LIGHT;
+			}
+			else if (targLoc.Y < thisLoc.Y) {
+				cState = State::TARGET_BEHIND_LEFT_NO_LIGHT;
+			}
 		}
 	}
-	else if (targLoc.X < thisLoc.X) {
-		if (targLoc.Y > thisLoc.Y) {
-			cState = State::TARGET_BEHIND_RIGHT;
+	else if (inLight <= 4) {
+		if (targLoc.X > thisLoc.X) {
+			if (targLoc.Y > thisLoc.Y) {
+				cState = State::TARGET_AHEAD_RIGHT_LOW_LIGHT;
+			}
+			else if (targLoc.Y < thisLoc.Y) {
+				cState = State::TARGET_AHEAD_LEFT_LOW_LIGHT;
+			}
 		}
-		else if (targLoc.Y < thisLoc.Y) {
-			cState = State::TARGET_BEHIND_LEFT;
-		}
-		else {
-			cState = State::TARGET_BEHIND;
+		else if (targLoc.X < thisLoc.X) {
+			if (targLoc.Y > thisLoc.Y) {
+				cState = State::TARGET_BEHIND_RIGHT_LOW_LIGHT;
+			}
+			else if (targLoc.Y < thisLoc.Y) {
+				cState = State::TARGET_BEHIND_LEFT_LOW_LIGHT;
+			}
 		}
 	}
 	else {
-		if (targLoc.Y > thisLoc.Y) {
-			cState = State::TARGET_RIGHT;
+		if (targLoc.X > thisLoc.X) {
+			if (targLoc.Y > thisLoc.Y) {
+				cState = State::TARGET_AHEAD_RIGHT_HIGH_LIGHT;
+			}
+			else if (targLoc.Y < thisLoc.Y) {
+				cState = State::TARGET_AHEAD_LEFT_HIGH_LIGHT;
+			}
 		}
-		else if (targLoc.Y < thisLoc.Y) {
-			cState = State::TARGET_LEFT;
+		else if (targLoc.X < thisLoc.X) {
+			if (targLoc.Y > thisLoc.Y) {
+				cState = State::TARGET_BEHIND_RIGHT_HIGH_LIGHT;
+			}
+			else if (targLoc.Y < thisLoc.Y) {
+				cState = State::TARGET_BEHIND_LEFT_HIGH_LIGHT;
+			}
 		}
 	}
 }
@@ -224,7 +255,7 @@ void AShadowEnemy::chooseAction()
 
 	int random = rand() % 100;
 
-	if (random > 5) {
+	if (random > 0) {
 		
 		for (int i = 0; i < ACTION_NUM; i++) {
 			if (Q[cState][i] > bestValue) {
@@ -261,22 +292,25 @@ void AShadowEnemy::LoadQFromFile()
 	FString filePath = FPaths::ProjectContentDir() + TEXT("QMatrix.txt");
 	FString forInput;
 
-	FFileHelper::LoadFileToString(forInput, *filePath);
+	if (FPaths::FileExists(filePath)) {
 
-	TArray<FString> lines;
-	forInput.ParseIntoArrayLines(lines);
+		FFileHelper::LoadFileToString(forInput, *filePath);
 
-	Q.Empty();
+		TArray<FString> lines;
+		forInput.ParseIntoArrayLines(lines);
 
-	for (const FString& line : lines) {
-		TArray<FString> tokens;
-		line.ParseIntoArray(tokens, TEXT(" "), true);
+		Q.Empty();
 
-		TArray<float> innerArray;
-		for (const FString& token : tokens) {
-			innerArray.Add(FCString::Atof(*token));
+		for (const FString& line : lines) {
+			TArray<FString> tokens;
+			line.ParseIntoArray(tokens, TEXT(" "), true);
+
+			TArray<float> innerArray;
+			for (const FString& token : tokens) {
+				innerArray.Add(FCString::Atof(*token));
+			}
+			Q.Add(innerArray);
 		}
-		Q.Add(innerArray);
 	}
 }
 
