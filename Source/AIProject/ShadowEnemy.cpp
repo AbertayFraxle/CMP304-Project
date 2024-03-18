@@ -14,7 +14,7 @@ AShadowEnemy::AShadowEnemy()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	randomChance = 50;
 }
 
 // Called when the game starts or when spawned
@@ -45,6 +45,7 @@ void AShadowEnemy::BeginPlay()
 
 	//stored distance from the player
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
+
 }
 
 // Called every frame
@@ -255,7 +256,7 @@ void AShadowEnemy::chooseAction()
 
 	int random = rand() % 100;
 
-	if (random > 0) {
+	if (random > randomChance) {
 		
 		for (int i = 0; i < ACTION_NUM; i++) {
 			if (Q[cState][i] > bestValue) {

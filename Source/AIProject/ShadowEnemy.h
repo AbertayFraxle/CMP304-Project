@@ -44,6 +44,8 @@ protected:
 
 	TArray<TArray<float>> Q;
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float randomChance;
 
 	UPROPERTY(BlueprintReadWrite,EditAnywhere)
 	AActor* player;
