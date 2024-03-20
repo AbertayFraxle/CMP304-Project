@@ -158,13 +158,13 @@ void AShadowEnemy::Tick(float DeltaTime)
 	}
 
 	FHitResult hit;
-	GetWorld()->LineTraceSingleByChannel(hit, GetActorLocation(), GetActorLocation() + (GetActorForwardVector() *100), ECC_WorldStatic);
+	GetWorld()->LineTraceSingleByChannel(hit, GetActorLocation()+ (GetActorForwardVector()*50), GetActorLocation() + (GetActorForwardVector() *100), ECC_WorldStatic);
 
 	if (hit.bBlockingHit != 0) {
 		calcReward -= 2*FVector(GetActorLocation() - player->GetActorLocation()).Length();
 	}
 
-	calcReward -= (inLight * 500);
+	calcReward -= (inLight * 100);
 
 	reward += calcReward;
 
