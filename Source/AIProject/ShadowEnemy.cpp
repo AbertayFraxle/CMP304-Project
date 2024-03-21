@@ -43,6 +43,8 @@ void AShadowEnemy::BeginPlay()
 
 	}
 
+	maxRandom = randomChance;
+
 	//stored distance from the player
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
 
@@ -89,43 +91,12 @@ void AShadowEnemy::Tick(float DeltaTime)
 
 	}
 
+	
+
 	chooseState();
 	chooseAction();
 
 	switch (cAction) {
-		/*case Action::PURSUE_PLAYER: {
-
-			FVector direction = player->GetActorLocation() - GetActorLocation();
-			direction.Z = 0;
-			direction.Normalize();
-
-			AddMovementInput(direction);
-
-			break;
-		}
-		case Action::RETREAT: {
-
-			float lowDist = 100000000;
-			int lowIndex = 0;
-			for (int i = 0; i < inLights.Num();i++) {
-				float currDist = FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length();
-				if (currDist < lowDist) {
-					lowDist = currDist;
-					lowIndex = i;
-				}
-
-			}
-
-			if (inLights.IsValidIndex(lowIndex) ){
-				FVector dir = GetActorLocation() - inLights[lowIndex]->GetActorLocation();
-				dir.Z = 0;
-				dir.Normalize();
-				AddMovementInput(dir);
-			}
-
-			break;
-		}
-		*/
 	case Action::MOVE_FORWARD: {
 		FVector dir = FVector(1, 0, 0);
 		AddMovementInput(dir);
@@ -146,25 +117,67 @@ void AShadowEnemy::Tick(float DeltaTime)
 		AddMovementInput(dir);
 		break;
 	}
+	case Action::DONT_MOVE: {
+		break;
+	}
 	}
 	PrintAction();
 	float calcReward = 0;
 
-	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist){
+	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist) {
 		calcReward += 1000 / FVector(GetActorLocation() - player->GetActorLocation()).Length();
+		if (randomChance > 0) {
+			randomChance--;
+		}
 	}
 	else if (FVector(GetActorLocation() - player->GetActorLocation()).Length() > targDist) {
 		calcReward -= FVector(GetActorLocation() - player->GetActorLocation()).Length();
+		if (randomChance < maxRandom) {
+			randomChance++ ;
+		}
 	}
+	else {
+		calcReward = 100;
+		if (randomChance > 0) {
+			randomChance--;
+		}
+		if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < 100) {
+			calcReward = 1000000;
+			randomChance = 0;
+		}
+	}
+
+
 
 	FHitResult hit;
-	GetWorld()->LineTraceSingleByChannel(hit, GetActorLocation()+ (GetActorForwardVector()*50), GetActorLocation() + (GetActorForwardVector() *100), ECC_WorldStatic);
+	GetWorld()->LineTraceSingleByObjectType(hit, GetActorLocation() + (GetActorForwardVector() * 50), GetActorLocation() + (GetActorForwardVector() * 100), ECC_WorldStatic);
 
 	if (hit.bBlockingHit != 0) {
-		calcReward -= 2*FVector(GetActorLocation() - player->GetActorLocation()).Length();
+		calcReward -= 2 * FVector(GetActorLocation() - player->GetActorLocation()).Length();
+		if (randomChance < maxRandom) {
+			randomChance++;
+		}
 	}
 
-	calcReward -= (inLight * 100);
+	
+
+
+	if (inLight > 0){
+		float lowest = 100000;
+		float lowAtt = 0;
+		for (int i = 0; i < inLights.Num(); i++) {
+			if (FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length() < lowest) {
+				lowest = FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length();
+				UPointLightComponent * light =  inLights[i]->GetComponentByClass<UPointLightComponent>();
+				lowAtt = light->AttenuationRadius;
+			}
+		}
+		if (randomChance < maxRandom) {
+			randomChance+=2;
+		}
+
+		calcReward -= (inLight * (lowAtt / lowest) * 1000);
+	}
 
 	reward += calcReward;
 
