@@ -24,17 +24,22 @@ void AShadowEnemy::BeginPlay()
 
 	srand(time(NULL));
 
+	//Initialise the Q matrix and load it from txt file
 	TArray<float> qEntry;
 	qEntry.Init(0, ACTION_NUM);
 	Q.Init(qEntry, STATE_NUM);
 	LoadQFromFile();
 
+	//get all point light actors for the enemy to avoid
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APointLight::StaticClass(), pointLights);
 	
+	//get a reference to self skeleton
 	mesh = FindComponentByClass<USkeletalMeshComponent>();
 
+	//get the points on the skeleton to raycast to lights from
 	TArray<FName> allSocks = mesh->GetAllSocketNames();
 
+	//discard bones
 	for (FName name : allSocks) {
 
 		if (name.ToString().Contains(FString("socket"))) {
@@ -42,8 +47,6 @@ void AShadowEnemy::BeginPlay()
 		}
 
 	}
-
-	maxRandom = randomChance;
 
 	//stored distance from the player
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
@@ -55,29 +58,34 @@ void AShadowEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	//reset counter of sockets in light
 	inLight = 0;
-
+	
+	//empty array of lights enemy is inside
 	inLights.Empty();
 
+	//loop for all point lights in the scene
 	for (int i = 0; i < (pointLights.Num()); i++) {
 
-
+		//get point light component
 		UPointLightComponent* current = pointLights[i]->GetComponentByClass<UPointLightComponent>();
 
+		//loop for all sockets
 		for (int j = 0; j < (socketNames.Num()); j++) {
 
-
+			//check if the socket is within the attenuation radius of the light
 			FVector cLoc = mesh->GetSocketLocation(socketNames[j]);
-
 			FVector dir = cLoc - pointLights[i]->GetActorLocation();
 			float dist = dir.Length();
 			dir.Normalize();
 
-
+			
 			if (dist <= current->AttenuationRadius) {
 
+				//do a raycast from the socket to the light, and if unbroken, increase the inLight variable and save which light was hit
 				FHitResult hit;
 				GetWorld()->LineTraceSingleByChannel(hit, cLoc, pointLights[i]->GetActorLocation(), ECC_Visibility);
+
 				//DrawDebugLine(GetWorld(), cLoc, pointLights[i]->GetActorLocation(), FColor::Red, false, 1.f);
 
 				if (hit.bBlockingHit == 0) {
@@ -92,103 +100,68 @@ void AShadowEnemy::Tick(float DeltaTime)
 	}
 
 	
-
+	//determine which state to be in
 	chooseState();
+
+	//determine which action to use
 	chooseAction();
 
+	//execute action
 	switch (cAction) {
 	case Action::MOVE_FORWARD: {
+		//add forward input
 		FVector dir = FVector(1, 0, 0);
 		AddMovementInput(dir);
 		break;
 	}
 	case Action::MOVE_BACKWARDS: {
+		//add backward input
 		FVector dir = FVector(-1, 0, 0);
 		AddMovementInput(dir);
 		break;
 	}
 	case Action::MOVE_LEFT: {
+		//add left input
 		FVector dir = FVector(0, -1, 0);
 		AddMovementInput(dir);
 		break;
 	}
 	case Action::MOVE_RIGHT: {
+		//add right input
 		FVector dir = FVector(0, 1, 0);
 		AddMovementInput(dir);
 		break;
 	}
-	case Action::DONT_MOVE: {
+	case Action::MOVE_TOWARDS_PLAYER: {
+		//determine vector to point towards player and move in that direction
+		FVector dir =  player->GetActorLocation() - GetActorLocation();
+		dir.Normalize();
+		AddMovementInput(dir);
+		
 		break;
 	}
 	}
+
+	//output which action taken to the screen
 	PrintAction();
+
+	//calculate the reward for this action
 	float calcReward = 0;
+	CalculateReward(calcReward);
 
-	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist) {
-		calcReward += 1000 / FVector(GetActorLocation() - player->GetActorLocation()).Length();
-		if (randomChance > 0) {
-			randomChance--;
-		}
-	}
-	else if (FVector(GetActorLocation() - player->GetActorLocation()).Length() > targDist) {
-		calcReward -= FVector(GetActorLocation() - player->GetActorLocation()).Length();
-		if (randomChance < maxRandom) {
-			randomChance++ ;
-		}
-	}
-	else {
-		calcReward = 100;
-		if (randomChance > 0) {
-			randomChance--;
-		}
-		if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < 100) {
-			calcReward = 1000000;
-			randomChance = 0;
-		}
-	}
+	//do Q learning, with defined learning rate and discount rate
+	Q[cState][cAction] = Q[cState][cAction] + LEARNING_RATE * (calcReward + (DISCOUNT_RATE * getMax()) - Q[cState][cAction]);
 
-
-
-	FHitResult hit;
-	GetWorld()->LineTraceSingleByObjectType(hit, GetActorLocation() + (GetActorForwardVector() * 50), GetActorLocation() + (GetActorForwardVector() * 100), ECC_WorldStatic);
-
-	if (hit.bBlockingHit != 0) {
-		calcReward -= 2 * FVector(GetActorLocation() - player->GetActorLocation()).Length();
-		if (randomChance < maxRandom) {
-			randomChance++;
-		}
-	}
-
-	
-
-
-	if (inLight > 0){
-		float lowest = 100000;
-		float lowAtt = 0;
-		for (int i = 0; i < inLights.Num(); i++) {
-			if (FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length() < lowest) {
-				lowest = FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length();
-				UPointLightComponent * light =  inLights[i]->GetComponentByClass<UPointLightComponent>();
-				lowAtt = light->AttenuationRadius;
-			}
-		}
-		if (randomChance < maxRandom) {
-			randomChance+=2;
-		}
-
-		calcReward -= (inLight * (lowAtt / lowest) * 1000);
-	}
-
-	reward += calcReward;
-
-	Q[cState][cAction] = Q[cState][cAction] + 0.1 * (calcReward + (0.8 * getMax()) - Q[cState][cAction]);
-
+	//update the saved distance from the target
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
+
+
+	//print the inLight value
 	float print = inLight;
 	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("inLight equals %f"), print));
 
+	//increase timer and if above 10, reset timer and save Q array
 	timer += DeltaTime;
-
 	if (timer > 10) {
 		timer = 0;
 		SaveQToFile();
@@ -203,6 +176,7 @@ void AShadowEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AShadowEnemy::chooseState()
 {
+	//determine the state based on the relative position of the player to the enemy, and how much light the enemy is in
 	FVector targLoc = player->GetActorLocation();
 	FVector thisLoc= GetActorLocation();
 	
@@ -264,6 +238,7 @@ void AShadowEnemy::chooseState()
 
 void AShadowEnemy::chooseAction()
 {
+	//determine which value in the Q matrix has the largest reward assosciated with it for the state, with random chance to be completely random 
 	float bestValue = Q[cState][0];
 	int bestAction = 0;
 
@@ -288,6 +263,7 @@ void AShadowEnemy::chooseAction()
 
 void AShadowEnemy::SaveQToFile()
 {
+	//output the current Q matrix to Qmatrix.txt in the content folder
 	FString filePath = FPaths::ProjectContentDir() + TEXT("QMatrix.txt");
 	FString forOutput;
 
@@ -303,6 +279,8 @@ void AShadowEnemy::SaveQToFile()
 
 void AShadowEnemy::LoadQFromFile()
 {
+	//input the saved Q matrix from QMatrix.txt to the Q matrix
+
 	FString filePath = FPaths::ProjectContentDir() + TEXT("QMatrix.txt");
 	FString forInput;
 
@@ -330,7 +308,7 @@ void AShadowEnemy::LoadQFromFile()
 
 void AShadowEnemy::PrintAction()
 {
-
+	//print which action is currently selected
 	switch (cAction) {
 	case MOVE_FORWARD:
 		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Forward"));
@@ -344,12 +322,68 @@ void AShadowEnemy::PrintAction()
 	case MOVE_RIGHT:
 		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Right"));
 		break;
+	case MOVE_TOWARDS_PLAYER:
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, TEXT("Move Towards Player"));
+		break;
 	}
 
 }
 
+void AShadowEnemy::CalculateReward(float & calcReward)
+{
+	
+	//if the enemy gets closer to the target compared to last frame, reward positively based on distance
+	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist) {
+		calcReward += 1000 / FVector(GetActorLocation() - player->GetActorLocation()).Length();
+
+	}
+	else if (FVector(GetActorLocation() - player->GetActorLocation()).Length() > targDist) {
+		//if the enemy gets further from the target compared to last frame, reward negatively based on distance
+		calcReward -= FVector(GetActorLocation() - player->GetActorLocation()).Length();
+
+	}
+	else {
+
+		//if distance is the exact same and within a meter of the target, flat increase the reward by 10000
+		if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < 100) {
+			calcReward = 10000;
+		}
+	}
+
+
+	//raycast directly in from of enemy for a meter
+	FHitResult hit;
+	GetWorld()->LineTraceSingleByObjectType(hit, GetActorLocation(), GetActorLocation() + (GetActorForwardVector() * 100), ECC_WorldStatic);
+
+	//if touching a wall, heavily penalise the potential reward
+	if (hit.bBlockingHit != 0) {
+		calcReward -= 2 * FVector(GetActorLocation() - player->GetActorLocation()).Length();
+	}
+
+	//if being hit by the point lights
+	if (inLight > 0) {
+
+		//search for the closest light
+		float lowest = 100000;
+		float lowAtt = 0;
+		for (int i = 0; i < inLights.Num(); i++) {
+			if (FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length() < lowest) {
+				lowest = FVector(GetActorLocation() - inLights[i]->GetActorLocation()).Length();
+				UPointLightComponent* light = inLights[i]->GetComponentByClass<UPointLightComponent>();
+				lowAtt = light->AttenuationRadius;
+			}
+		}
+
+		//reduce the reward based on how close the player is to the light multiplied by the amount its being hit by the light
+		calcReward -= (inLight * (lowAtt / lowest) * 1000);
+	}
+
+	reward += calcReward;
+}
+
 float AShadowEnemy::getMax() {
 
+	//return the maximum reward value in the Q array with current state
 	float max = 0;
 
 	for (int i = 0; i < ACTION_NUM; i++) {
