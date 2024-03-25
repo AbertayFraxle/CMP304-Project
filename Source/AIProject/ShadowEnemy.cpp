@@ -15,6 +15,11 @@ AShadowEnemy::AShadowEnemy()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	randomChance = 50;
+
+	printActions = false;
+
+	learningRate = 0.5;
+	discountRate = 0.9;
 }
 
 // Called when the game starts or when spawned
@@ -50,6 +55,8 @@ void AShadowEnemy::BeginPlay()
 
 	//stored distance from the player
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
+
+
 
 }
 
@@ -142,23 +149,25 @@ void AShadowEnemy::Tick(float DeltaTime)
 	}
 	}
 
-	//output which action taken to the screen
-	PrintAction();
+	if (printActions) {
+		//output which action taken to the screen
+		PrintAction();
+	}
 
 	//calculate the reward for this action
 	float calcReward = 0;
 	CalculateReward(calcReward);
 
 	//do Q learning, with defined learning rate and discount rate
-	Q[cState][cAction] = Q[cState][cAction] + LEARNING_RATE * (calcReward + (DISCOUNT_RATE * getMax()) - Q[cState][cAction]);
+	Q[cState][cAction] = Q[cState][cAction] + learningRate * (calcReward + (discountRate * getMax()) - Q[cState][cAction]);
 
 	//update the saved distance from the target
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
 
 
 	//print the inLight value
-	float print = inLight;
-	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("inLight equals %f"), print));
+	//float print = inLight;
+	//GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("inLight equals %f"), print));
 
 	//increase timer and if above 10, reset timer and save Q array
 	timer += DeltaTime;
@@ -306,6 +315,27 @@ void AShadowEnemy::LoadQFromFile()
 	}
 }
 
+void AShadowEnemy::ResetQ()
+{
+	FString filePath = FPaths::ProjectContentDir() + TEXT("QMatrix.txt");
+	FString forOutput;
+
+	TArray<float> qEntry;
+	qEntry.Init(0, ACTION_NUM);
+
+	Q.Empty();
+	Q.Init(qEntry, STATE_NUM);
+
+	for (const TArray<float>& InnerArray : Q) {
+		for (float value : InnerArray) {
+			forOutput += FString::SanitizeFloat(value) + TEXT(" ");
+		}
+		forOutput += TEXT("\n");
+	}
+
+	FFileHelper::SaveStringToFile(forOutput, *filePath);
+}
+
 void AShadowEnemy::PrintAction()
 {
 	//print which action is currently selected
@@ -336,18 +366,15 @@ void AShadowEnemy::CalculateReward(float & calcReward)
 	if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < targDist) {
 		calcReward += 1000 / FVector(GetActorLocation() - player->GetActorLocation()).Length();
 
+
+		if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < 100) {
+			calcReward = 10000;
+		}
 	}
 	else if (FVector(GetActorLocation() - player->GetActorLocation()).Length() > targDist) {
 		//if the enemy gets further from the target compared to last frame, reward negatively based on distance
 		calcReward -= FVector(GetActorLocation() - player->GetActorLocation()).Length();
 
-	}
-	else {
-
-		//if distance is the exact same and within a meter of the target, flat increase the reward by 10000
-		if (FVector(GetActorLocation() - player->GetActorLocation()).Length() < 100) {
-			calcReward = 10000;
-		}
 	}
 
 
@@ -375,7 +402,7 @@ void AShadowEnemy::CalculateReward(float & calcReward)
 		}
 
 		//reduce the reward based on how close the player is to the light multiplied by the amount its being hit by the light
-		calcReward -= (inLight * (lowAtt / lowest) * 1000);
+		calcReward -= (inLight * (lowAtt / lowest) * 2000);
 	}
 
 	reward += calcReward;

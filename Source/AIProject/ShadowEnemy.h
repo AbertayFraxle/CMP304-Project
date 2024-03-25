@@ -11,11 +11,9 @@
 #define ACTION_NUM 5
 #define STATE_NUM 12
 
-#define LEARNING_RATE 0.5
-#define DISCOUNT_RATE 0.9
 
 enum State {TARGET_AHEAD_LEFT_NO_LIGHT, TARGET_AHEAD_RIGHT_NO_LIGHT,TARGET_BEHIND_LEFT_NO_LIGHT,TARGET_BEHIND_RIGHT_NO_LIGHT, TARGET_AHEAD_LEFT_LOW_LIGHT, TARGET_AHEAD_RIGHT_LOW_LIGHT, TARGET_BEHIND_LEFT_LOW_LIGHT, TARGET_BEHIND_RIGHT_LOW_LIGHT, TARGET_AHEAD_LEFT_HIGH_LIGHT, TARGET_AHEAD_RIGHT_HIGH_LIGHT, TARGET_BEHIND_LEFT_HIGH_LIGHT, TARGET_BEHIND_RIGHT_HIGH_LIGHT};
-enum Action {MOVE_FORWARD,MOVE_BACKWARDS,MOVE_LEFT,MOVE_RIGHT,MOVE_TOWARDS_PLAYER};//{PURSUE_PLAYER,RETREAT};
+enum Action {MOVE_FORWARD,MOVE_BACKWARDS,MOVE_LEFT,MOVE_RIGHT,MOVE_TOWARDS_PLAYER};
 
 UCLASS()
 class AIPROJECT_API AShadowEnemy : public ACharacter
@@ -34,11 +32,12 @@ protected:
 	TArray<FName> socketNames;
 	TArray<AActor*> inLights;
 	USkeletalMeshComponent* mesh;
-	UINT8 inLight;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	int inLight;
+
 	State cState;
 	Action cAction;
-
-	bool playerInLight;
 
 	float targDist;
 
@@ -50,10 +49,18 @@ protected:
 	TArray<TArray<float>> Q;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float learningRate;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	float discountRate;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	float randomChance;
 
 	UPROPERTY(BlueprintReadWrite,EditAnywhere)
 	AActor* player;
+
+	bool printActions;
 
 public:	
 	// Called every frame
@@ -67,6 +74,9 @@ public:
 
 	void SaveQToFile();
 	void LoadQFromFile();
+
+	UFUNCTION(BlueprintCallable)
+	void ResetQ();
 
 	void PrintAction();
 	
