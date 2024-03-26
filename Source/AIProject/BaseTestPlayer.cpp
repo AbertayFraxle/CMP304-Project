@@ -31,7 +31,7 @@ void ABaseTestPlayer::Tick(float DeltaTime)
 
 void ABaseTestPlayer::Generate() {
 
-
+	//generate positions to use in test and write to file
 	for (int i = 0; i < numPos; i++) {
 		positions.Add(FVector(FMath::FRandRange(0, limit), FMath::FRandRange(0, limit), 0));
 	}
@@ -48,6 +48,8 @@ void ABaseTestPlayer::Generate() {
 }
 
 void ABaseTestPlayer::LoadPos() {
+
+	//load predetermined positions from file, or generate them if not there
 	FString filePath = FPaths::ProjectContentDir() + TEXT("TestPositions.txt");
 	FString forInput;
 
@@ -73,7 +75,7 @@ void ABaseTestPlayer::LoadPos() {
 
 void ABaseTestPlayer::SaveTimes()
 {
-
+	//output the times the testing took to the content dir
 	FString filePath = FPaths::ProjectContentDir() + TEXT("Timings") + FDateTime::Now().ToString() + TEXT(".txt");
 	FString forOutput;
 	int count = 1;

@@ -28,38 +28,55 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	//all the lights in scene
 	TArray<AActor*> pointLights;
+
+	//names of sockets to count if in the light
 	TArray<FName> socketNames;
+
+	//array to store lights that the AI is within
 	TArray<AActor*> inLights;
+
+	//reference to skeleton mesh
 	USkeletalMeshComponent* mesh;
 
+	//count of how many points of the AI are within light
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	int inLight;
 
+	//current state and current action
 	State cState;
 	Action cAction;
 
+	//storing the distance from the target
 	float targDist;
 
+	//reward to motivate AI
 	float reward;
+
+	//timer for saving Q matrix
 	float timer;
 
-	FVector storedPos;
-
+	//learning matrix, for AI to weigh options
 	TArray<TArray<float>> Q;
 
+	//player editable learning rate
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	float learningRate;
 
+	//player editable discount rate
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	float discountRate;
 
+	//player editable chance to perform random action
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	float randomChance;
 
+	//reference to the player to be pursued
 	UPROPERTY(BlueprintReadWrite,EditAnywhere)
 	AActor* player;
 
+	//debug bool whether to print actions taken
 	bool printActions;
 
 public:	
@@ -69,18 +86,26 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	//choose which state we're in
 	void chooseState();
+
+	//choose which action to perform
 	void chooseAction();
 
+	//saving and loading q matrix
 	void SaveQToFile();
 	void LoadQFromFile();
 
+	//delete and reset q matrix
 	UFUNCTION(BlueprintCallable)
 	void ResetQ();
 
+	//print action taken
 	void PrintAction();
 	
+	//calculate the reward based on multiple checks
 	void CalculateReward(float & calcReward);
 
+	//get the maximum value of the Q matrix for current state
 	float getMax();
 };

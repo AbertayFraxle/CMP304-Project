@@ -164,11 +164,6 @@ void AShadowEnemy::Tick(float DeltaTime)
 	//update the saved distance from the target
 	targDist = FVector(GetActorLocation() - player->GetActorLocation()).Length();
 
-
-	//print the inLight value
-	//float print = inLight;
-	//GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("inLight equals %f"), print));
-
 	//increase timer and if above 10, reset timer and save Q array
 	timer += DeltaTime;
 	if (timer > 10) {
